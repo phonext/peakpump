@@ -1,0 +1,149 @@
+# Eight entities, no more and no others. Every amount is a
+# BigInt: no decimal type exists in this indexer, and no figure anyone trades on
+# is read from here — the curve and the vault stay the golden data.
+#
+# Field names are fixed by the client queries that read them
+# (apps/web/lib/graphql.ts, apps/web/lib/creator-earnings.ts): Trade filters on
+# curve, Candle and Holder on token (the PeakToken clone address), FeeCredit on
+# curve and recipient.
+
+type Token {
+  # The curve address. The market is keyed by it because MarketCreated, the
+  # Trade event and the client's own curve argument all carry it.
+  id: ID!
+  # The PeakToken clone address, which is what Candle and Holder key on.
+  token: String! @index
+  creator: String! @index
+  marketId: Int!
+  # name, symbol and metadataURI come from MarketMetadata and from nowhere
+  # else, so they are absent until that event lands in the same create
+  # transaction.
+  name: String
+  symbol: String
+  metadataURI: String
+  # The names are misnomers inherited from the contracts, frozen here so the
+  # mapping is stated once: tSupply6 is S and tSummit6 is Ts, both token wei.
+  y0: BigInt!
+  S: BigInt!
+  Ts: BigInt!
+  antiSnipeEndBlock: BigInt!
+  maxBuyPerAddress6: BigInt!
+  feeBps: Int!
+  creatorBps: Int!
+  protocolBps: Int!
+  creationFee6: BigInt!
+  # 0 ASCENT, 1 PEAK.
+  phase: Int!
+  # raised6, y and priceX18 at the Summit are copied from the Summit event,
+  # never recomputed from reserves.
+  raised6: BigInt!
+  y: BigInt!
+  priceX18: BigInt!
+  creatorFees6: BigInt!
+  holderCount: Int!
+  tradeCount: Int!
+  volume6: BigInt!
+  timestamp: BigInt!
+}
+
+type Trade {
+  # blockNumber-logIndex: one row per Trade event, unique on the log.
+  id: ID!
+  curve: String! @index
+  # `to` on a buy, msg.sender on a sell, mirroring the contracts' own convention.
+  trader: String!
+  isBuy: Boolean!
+  usdcIn6: BigInt!
+  usdcOut6: BigInt!
+  tokenIn: BigInt!
+  tokenOut: BigInt!
+  # Read straight off the event, never recomputed: the contract's rounding is
+  # authoritative.
+  fee6: BigInt!
+  # Display material only. Ordering and paging are (blockNumber, logIndex).
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  logIndex: Int!
+  # The join key that attributes FeeVault credits and TradeDetail legs to this
+  # trade within one transaction.
+  transactionHash: String! @index
+}
+
+type Candle {
+  # token-interval-bucketStart.
+  id: ID!
+  token: String! @index
+  # "1m", "5m", "1h", "1d" and nothing else.
+  interval: String!
+  bucketStart: BigInt!
+  # Post-trade priceX18 for every leg of the OHLC.
+  open: BigInt!
+  high: BigInt!
+  low: BigInt!
+  close: BigInt!
+  # The USDC leg: usdcIn6 on a buy, usdcOut6 on a sell.
+  volume6: BigInt!
+  tradeCount: Int!
+}
+
+type Holder {
+  # token-address. No row exists for the zero address, the curve or the
+  # factory, and a row at zero balance is kept rather than deleted.
+  id: ID!
+  token: String! @index
+  address: String!
+  balance: BigInt!
+}
+
+type Position {
+  # token-trader, where trader is the position owner: TradeDetail.to on a buy,
+  # TradeDetail.trader on a sell. On a factory dev-buy that is the creator, not
+  # the factory.
+  id: ID!
+  token: String! @index
+  trader: String!
+  tokensHeld: BigInt!
+  # Weighted average cost basis. Fees are part of the basis on a buy and reduce
+  # proceeds on a sell.
+  costBasis6: BigInt!
+  realised6: BigInt!
+  feePaid6: BigInt!
+  buys: Int!
+  sells: Int!
+}
+
+type Creator {
+  # The creator address.
+  id: ID!
+  totalCreatorFees6: BigInt!
+  claimed6: BigInt!
+  marketCount: Int!
+}
+
+type FeeCredit {
+  # blockNumber-logIndex.
+  id: ID!
+  # "credit" or "claim".
+  kind: String!
+  # Null on claims and on credits that belong to no trade: the creation fee,
+  # bare receives and sweeps. No equality between Trade fees and total credits
+  # is ever asserted.
+  curve: String
+  recipient: String! @index
+  # 0 Creator, 1 Protocol; null on claims.
+  reason: Int
+  amount6: BigInt!
+  blockNumber: BigInt!
+  logIndex: Int!
+  timestamp: BigInt!
+}
+
+type Global {
+  id: ID!
+  totalMarkets: Int!
+  totalTrades: Int!
+  totalVolume6: BigInt!
+  totalCreatorFees6: BigInt!
+  totalProtocolFees6: BigInt!
+  totalClaims6: BigInt!
+}

@@ -1,0 +1,277 @@
+/* The six primitives DESIGN.md permits, and nothing else. transform and opacity
+   are the only animated properties, so every one of them stays on the compositor
+   and none of them can trigger layout. Overlays are pseudo-elements wherever the
+   component does not already render a real span, which keeps them out of the
+   accessibility tree by construction rather than by an attribute someone can
+   forget. */
+
+.pp-press {
+  transition: transform var(--pp-dur-fast) var(--pp-ease-out);
+}
+
+/* The scale is DESIGN.md:144 verbatim and stays. It is also why there is no
+   will-change here on any state: the transition above is a compositable transform
+   transition, which is a direct compositing reason for exactly as long as it runs, so
+   the layer the scale needs already exists for the whole animation and a will-change
+   beside it promotes nothing new. What a will-change did add was a layer whose
+   creation and destruction landed on boundaries that are not the animation's —
+   created with :active on the frame the animation starts, then withdrawn at release
+   while the reverse transition still had --pp-dur-fast to run, which forced a second
+   promotion. That churn is what reached the controls either side of the pressed
+   one. */
+.pp-press:active {
+  transform: translateY(1px) scale(0.99);
+}
+
+/* Lift owns the only hover treatment in the product. The bloom is a painted
+   gradient inside the element's own box, not a shadow and not a blur, and the
+   border colour underneath is never animated: the overlay carries its own top
+   edge and only the overlay's opacity moves. */
+.pp-lift {
+  position: relative;
+}
+
+.pp-lift::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border-top: 1px solid var(--pp-hairline-top);
+  background-image: radial-gradient(
+    120% 100% at 50% 100%,
+    color-mix(in srgb, var(--pp-accent) 12%, transparent),
+    transparent 70%
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--pp-dur-fast) var(--pp-ease-out);
+  /* A 3D transform rather than will-change, which DESIGN.md:198 bars from a base
+     class. Lift's ramp begins on hover-enter, so hover is already too late to
+     promote: without this the first hovered frame has to rasterize the gradient
+     and the top edge into a layer that does not exist yet, which is the repaint.
+     The layer is permanent either way, and this buys DESIGN.md:131-132 — the
+     animation actually running entirely on the compositor — at the cost of one
+     layer per Lift target. */
+  transform: translateZ(0);
+}
+
+.pp-lift:hover::after,
+.pp-lift:focus-visible::after {
+  opacity: 1;
+}
+
+/* Two triggers, one band. DESIGN.md fires Sheen on hover-enter of a primary
+   action and once on first paint of the header mark; a transition cannot fire on
+   mount, so the mark gets an animation that runs a single iteration and the
+   hover form gets the same animation gated on the parent's :hover. The span owns
+   overflow: hidden so the control keeps its focus indicator outside the clipped
+   layer. */
+.pp-sheen,
+.pp-sheen-once {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  /* The clip is DESIGN.md:157, so it stays; what changes is who applies it. On its
+     own layer the rounded clip becomes a property of that layer, applied by the
+     compositor, instead of a mask the main thread re-applies on every frame. This
+     layer also exists before the sweep starts, and the sweep starts on hover-enter,
+     so nothing has to be created on the frame that begins it. The band below is
+     painted content inside this layer and stays that way at rest. contain: paint is
+     not what overflow: hidden already implies — that clips without making a stacking
+     context, and this does — and the promise it adds is that nothing in this box can
+     paint outside it, which is what keeps a frame of the band off a neighbour. */
+  transform: translateZ(0);
+  contain: paint;
+}
+
+.pp-sheen::before,
+.pp-sheen-once::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  inline-size: 33.333%;
+  background-image: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--pp-accent-bright) 14%, transparent),
+    transparent
+  );
+  /* No Z component, here or in the keyframes. A 2D translate with nothing animating is
+     foldable: the compositor bakes it into the layer the span above already owns and
+     the band stays painted content inside it, which is what it should be at rest. A Z
+     made it a layer of its own permanently, in every primary action and in the header
+     mark at once, and a permanent layer is a boundary the layerization pass has to
+     honour on any frame that promotes something else nearby. The sweep is a compositor
+     transform for exactly the 520ms it runs, which is the window DESIGN.md:131-132
+     asks about. No ancestor sets perspective and the offset would be zero regardless,
+     so DESIGN.md:158's -140% to 240% is untouched either way. */
+  transform: translateX(-140%);
+}
+
+:hover > .pp-sheen::before,
+.pp-sheen-once::before {
+  animation: pp-sheen-band var(--pp-dur-sheen) var(--pp-ease-sheen) 1;
+}
+
+@keyframes pp-sheen-band {
+  from {
+    transform: translateX(-140%);
+  }
+  to {
+    transform: translateX(240%);
+  }
+}
+
+/* The element occupies its final box before the animation begins, so cumulative
+   layout shift stays at zero: only opacity and translate move. */
+.pp-rise {
+  animation: pp-rise var(--pp-dur-slow) var(--pp-ease-out) 1;
+}
+
+.pp-rise:nth-child(2) {
+  animation-delay: 40ms;
+}
+
+.pp-rise:nth-child(3) {
+  animation-delay: 80ms;
+}
+
+/* A fourth and later sibling appears with no delay, so a long list never turns
+   into a queue the reader waits through. */
+.pp-rise:nth-child(n + 4) {
+  animation-delay: 0ms;
+}
+
+@keyframes pp-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* isolation, so the tint sits above the surface the number is printed on and
+   below the digits themselves. The digits never move, never roll and never blur:
+   the true value is on screen in the frame it arrives and the tint decays behind
+   it. */
+.pp-flash {
+  position: relative;
+  isolation: isolate;
+}
+
+.pp-flash::before {
+  content: "";
+  position: absolute;
+  inset: calc(var(--pp-space-1) * -0.5) calc(var(--pp-space-1) * -1);
+  z-index: -1;
+  border-radius: var(--pp-radius);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pp-flash[data-pp-flash="up"]::before {
+  background-color: var(--pp-up-soft);
+}
+
+.pp-flash[data-pp-flash="down"]::before {
+  background-color: var(--pp-down-soft);
+}
+
+/* Two names, alternated by the parity of the hook's sequence number. A second
+   change arriving inside the first decay has to restart the animation, and
+   swapping the name is the one way to do that without reading a layout property
+   to force a reflow. */
+.pp-flash[data-pp-flash-parity="0"]::before {
+  animation: pp-flash-a var(--pp-dur-flash) var(--pp-ease-out) 1;
+}
+
+.pp-flash[data-pp-flash-parity="1"]::before {
+  animation: pp-flash-b var(--pp-dur-flash) var(--pp-ease-out) 1;
+}
+
+@keyframes pp-flash-a {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes pp-flash-b {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Skeletons only. The 1200ms and the linear timing are written literally because
+   DESIGN.md:175 states them as literals rather than naming a duration token, and
+   this is the one animation in the product that loops. */
+.pp-shimmer {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--pp-surface-2);
+}
+
+.pp-shimmer::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  inline-size: 40%;
+  background-image: linear-gradient(90deg, transparent, var(--pp-hairline), transparent);
+  /* No Z component here either. The animation below is transform-only and never
+     stops, so it is itself a compositing reason from mount for as long as the skeleton
+     is on screen: this band was never being repainted on the main thread, and a Z
+     bought a second reason for a layer that already existed. */
+  transform: translateX(-100%);
+  animation: pp-shimmer-band 1200ms linear infinite;
+}
+
+@keyframes pp-shimmer-band {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+/* "Under @media (prefers-reduced-motion: reduce), Press keeps the 1px translate
+   and drops the scale, Lift becomes an instant state with no transition, and
+   Sheen, Rise, Flash and Shimmer do not run at all: a skeleton renders as a
+   still --pp-surface-2 block and a changed number simply changes." */
+@media (prefers-reduced-motion: reduce) {
+  .pp-press:active {
+    transform: translateY(1px);
+  }
+
+  .pp-lift::after {
+    transition: none;
+    /* Nothing animates here now, so the layer that existed to keep the ramp on the
+       compositor has no work left to do and the memory goes back. */
+    transform: none;
+  }
+
+  /* The overlays go, the boxes stay: .pp-shimmer keeps its --pp-surface-2 ground
+     and .pp-flash keeps the digits it was tinting. */
+  .pp-sheen,
+  .pp-sheen-once,
+  .pp-flash::before,
+  .pp-shimmer::before {
+    display: none;
+  }
+
+  .pp-rise {
+    animation: none;
+  }
+}

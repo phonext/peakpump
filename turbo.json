@@ -1,0 +1,41 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "gen:abi": {
+      "inputs": ["../../contracts/out/**"],
+      "outputs": ["abi/**", "src/index.ts"]
+    },
+    "gen:notice": {
+      "outputs": ["src/tradingview-notice.generated.ts"]
+    },
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    },
+    "@peakpump/shared#build": {
+      "dependsOn": ["^build", "gen:notice"],
+      "outputs": ["dist/**"]
+    },
+    "@peakpump/shared#typecheck": {
+      "dependsOn": ["^build", "gen:notice"]
+    },
+    "@peakpump/shared#test": {
+      "dependsOn": ["^build", "gen:notice"]
+    },
+    "@peakpump/web#build": {
+      "dependsOn": ["^build", "@peakpump/contracts-abi#gen:abi"],
+      "outputs": ["dist/**"]
+    },
+    "@peakpump/indexer#build": {
+      "dependsOn": ["^build", "@peakpump/contracts-abi#gen:abi"],
+      "outputs": ["dist/**"]
+    },
+    "typecheck": {
+      "dependsOn": ["^build"]
+    },
+    "lint": {},
+    "test": {
+      "dependsOn": ["^build"]
+    }
+  }
+}

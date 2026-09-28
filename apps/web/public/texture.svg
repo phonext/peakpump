@@ -1,0 +1,20 @@
+<!-- The ground texture .pp-texture tiles. Vector only, no raster: at 32px square it is
+     a few hundred bytes and stays crisp at any device pixel ratio.
+
+     The literal is --pp-hairline, and apps/web/app/globals.css owns it; a standalone
+     file cannot read a CSS custom property. The lines sit at 0.5 rather than 0 so each
+     one is a whole pixel inside the tile, which is what makes the 8px grid meet its
+     neighbour instead of thinning at every seam.
+
+     The 0.04 is this file's own figure. DESIGN.md names no texture, so the constraint
+     it has to meet is the document's rule that depth comes from the hairline and the
+     two surface steps: at this alpha the grid is below the --pp-surface step and cannot
+     read as a third surface. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <pattern id="pp-hairlines" width="8" height="8" patternUnits="userSpaceOnUse">
+      <path d="M0 0.5 H8 M0.5 0 V8" stroke="#393B3E" stroke-width="1" fill="none" />
+    </pattern>
+  </defs>
+  <rect width="32" height="32" fill="url(#pp-hairlines)" opacity="0.04" />
+</svg>

@@ -1,0 +1,25 @@
+{
+  "name": "@peakpump/indexer",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "codegen": "envio codegen",
+    "dev": "envio dev",
+    "start": "envio start",
+    "test": "envio codegen && vitest run --test-timeout=20000",
+    "typecheck": "envio codegen && tsc --noEmit",
+    "build": "envio codegen && tsc --noEmit"
+  },
+  "dependencies": {
+    "envio": "3.10.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.9.0",
+    "typescript": "5.6.3",
+    "vitest": "4.1.11"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

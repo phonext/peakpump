@@ -1,0 +1,24 @@
+{
+  "blocks": {
+    "CurveImpl": 59806903,
+    "FeeVault": 59806903,
+    "PeakTokenImpl": 59806903,
+    "PeakpumpFactory": 59806903
+  },
+  "chainId": 5042002,
+  "commit": "11f11bb5ee015c6c2282b1bed0a1d5727eb33cdb",
+  "contracts": {
+    "CurveImpl": "0x518b65B9ADD8E7F64Bc7e6a6035bEC7B87CbaeA6",
+    "FeeVault": "0xFA715612B06a50F82C1A00931df18215f0fE8ea8",
+    "PeakTokenImpl": "0xfB8aCd178bfaf54488Be91d64AFC6F9d636b6972",
+    "PeakpumpFactory": "0xfEe1364fB456c82d56Bb0344ea4A1082bD527a1e"
+  },
+  "deployedAt": "2026-08-31T17:36:41Z",
+  "evmVersion": "cancun",
+  "maxFeePerGas": 40000000000,
+  "maxPriorityFeePerGas": 1000000000,
+  "network": "arc-testnet",
+  "optimizerRuns": 200,
+  "solc": "0.8.28",
+  "startBlock": 59806903
+}

@@ -1,0 +1,8 @@
+# Everything under .envio/ and envio-env.d.ts is produced by `envio codegen`
+# from config.yaml and schema.graphql; every script that needs them runs
+# codegen first, so none of it is committed.
+.envio/
+envio-env.d.ts
+build/
+node_modules/
+.env

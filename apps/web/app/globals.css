@@ -1,0 +1,267 @@
+@import "tailwindcss";
+@import "./styles/motion.css";
+
+/* Tailwind's automatic content detection skips node_modules, and @peakpump/ui is
+   consumed as raw source through a workspace symlink, so its class names would
+   never be seen. */
+@source "../../../packages/ui/src";
+
+/* DESIGN.md says no size outside its type table exists and no spacing value
+   outside its spacing table exists. Tailwind's stock theme contradicts both: p-5
+   is 20px where step 5 is 24px, and bg-red-500 exists at all. Clearing the whole
+   default theme and re-declaring only what the document defines turns a value
+   from outside the document into a class that compiles to nothing, which a build
+   surfaces and a review does not.
+
+   static, so every token reaches :root whether or not a utility referenced it —
+   the styleguide reads several of them by name and an inline style is invisible
+   to the scanner. */
+@theme static {
+  --*: initial;
+
+  /* Every literal below appears exactly once, under the name DESIGN.md gives it.
+     The Tailwind namespaces further down alias these and restate no value of the
+     document's own, --spacing-0 excepted for the reason given there. */
+
+  --pp-bg: #0a0a0b;
+  --pp-surface: #131414;
+  --pp-surface-2: #1f2022;
+  --pp-hairline: #393b3e;
+  --pp-hairline-top: #585b5f;
+
+  --pp-text: #e3ecf6;
+  --pp-text-muted: #92989e;
+  --pp-text-faint: #82878d;
+
+  --pp-accent: #ff6f01;
+  --pp-accent-bright: #ff8101;
+  --pp-accent-deep: #cc5901;
+  --pp-accent-contrast: #1a0c00;
+
+  --pp-up: #23ad5e;
+  --pp-up-soft: #14371f;
+  --pp-down: #e65959;
+  --pp-down-soft: #3a1717;
+
+  --pp-space-1: 4px;
+  --pp-space-2: 8px;
+  --pp-space-3: 12px;
+  --pp-space-4: 16px;
+  --pp-space-5: 24px;
+  --pp-space-6: 32px;
+  --pp-space-7: 48px;
+
+  --pp-radius: 10px;
+
+  /* DESIGN.md names the six type steps in a table but gives them no variable
+     names, and --pp-text is already a colour, so the steps are --pp-size-* and
+     their line heights --pp-lh-*. */
+  --pp-size-display: 2.5rem;
+  --pp-lh-display: 1.15;
+  --pp-size-title: 1.75rem;
+  --pp-lh-title: 1.15;
+  --pp-size-heading: 1.25rem;
+  --pp-lh-heading: 1.3;
+  --pp-size-body: 1rem;
+  --pp-lh-body: 1.5;
+  --pp-size-small: 0.8125rem;
+  --pp-lh-small: 1.4;
+  --pp-size-micro: 0.75rem;
+  --pp-lh-micro: 1.4;
+
+  --pp-dur-fast: 120ms;
+  --pp-dur-slow: 240ms;
+  --pp-dur-sheen: 520ms;
+  --pp-dur-flash: 700ms;
+
+  --pp-ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --pp-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --pp-ease-sheen: cubic-bezier(0.4, 0, 0.6, 1);
+
+  --color-pp-bg: var(--pp-bg);
+  --color-pp-surface: var(--pp-surface);
+  --color-pp-surface-2: var(--pp-surface-2);
+  --color-pp-hairline: var(--pp-hairline);
+  --color-pp-hairline-top: var(--pp-hairline-top);
+  --color-pp-text: var(--pp-text);
+  --color-pp-text-muted: var(--pp-text-muted);
+  --color-pp-text-faint: var(--pp-text-faint);
+  --color-pp-accent: var(--pp-accent);
+  --color-pp-accent-bright: var(--pp-accent-bright);
+  --color-pp-accent-deep: var(--pp-accent-deep);
+  --color-pp-accent-contrast: var(--pp-accent-contrast);
+  --color-pp-up: var(--pp-up);
+  --color-pp-up-soft: var(--pp-up-soft);
+  --color-pp-down: var(--pp-down);
+  --color-pp-down-soft: var(--pp-down-soft);
+  --color-transparent: transparent;
+
+  /* Zero is not one of DESIGN.md's seven steps and so has no --pp-space-* name: it
+     is the absence of spacing rather than a spacing value, which is why this is the
+     one literal in this half of the block. Declaring it is not optional. Tailwind
+     resolves the 0 in inset-0, inset-x-0, bottom-0, left-0 and right-0 through this
+     scale, and --*: initial removed the base multiplier those fall back to, so
+     every one of them compiled to nothing: a dialog with no viewport box, a scrim
+     at 0x0, a toast unpinned from the bottom edge. An off-scale number such as p-13
+     still compiles to nothing, which is the point of clearing the theme. */
+  --spacing-0: 0px;
+  --spacing-1: var(--pp-space-1);
+  --spacing-2: var(--pp-space-2);
+  --spacing-3: var(--pp-space-3);
+  --spacing-4: var(--pp-space-4);
+  --spacing-5: var(--pp-space-5);
+  --spacing-6: var(--pp-space-6);
+  --spacing-7: var(--pp-space-7);
+
+  --radius-pp: var(--pp-radius);
+
+  --text-display: var(--pp-size-display);
+  --text-display--line-height: var(--pp-lh-display);
+  --text-display--letter-spacing: -0.02em;
+  --text-display--font-weight: 700;
+  --text-title: var(--pp-size-title);
+  --text-title--line-height: var(--pp-lh-title);
+  --text-title--letter-spacing: -0.02em;
+  --text-title--font-weight: 600;
+  --text-heading: var(--pp-size-heading);
+  --text-heading--line-height: var(--pp-lh-heading);
+  --text-heading--font-weight: 600;
+  --text-body: var(--pp-size-body);
+  --text-body--line-height: var(--pp-lh-body);
+  --text-body--font-weight: 450;
+  --text-small: var(--pp-size-small);
+  --text-small--line-height: var(--pp-lh-small);
+  --text-small--font-weight: 500;
+  --text-micro: var(--pp-size-micro);
+  --text-micro--line-height: var(--pp-lh-micro);
+  --text-micro--font-weight: 500;
+
+  /* DESIGN.md's two stacks, each with the next/font variable prepended. The
+     variable resolves to the self-hosted file plus the metric-matched fallback
+     Next.js generates for it; the document's own stack follows it unchanged, so a
+     machine with Space Grotesk installed and a machine with neither both land
+     where the table says. */
+  --font-sans:
+    var(--pp-font-sans), "Space Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, Arial, sans-serif;
+  --font-mono:
+    var(--pp-font-mono), "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+
+  /* Not in DESIGN.md's tables and not a value judgement: the two families ship a
+     wght axis and a heading has to pick a point on it. Both values sit inside
+     both axis ranges.
+
+     Medium is 600 rather than the 500 the name suggests because every heading in
+     the product is written above 24px or carries the wordmark's weight, and every
+     label sits at 13px on a tinted ground inside a border of its own hue, where a
+     lighter face merges into its background. Raising the token raises both at
+     once, which is the point: light text on this ground loses apparent weight, so
+     the whole middle of the scale moves up. The step weights below take over
+     wherever a site does not ask for this one, and body copy is set on body so
+     that running paragraphs stay lighter than the labels around them. */
+  --font-weight-normal: 400;
+  --font-weight-medium: 600;
+
+  /* DESIGN.md's Responsive section: three breakpoints, sm up to 767, md 768 to
+     1279, lg 1280 and up, and no fourth. sm needs no query because the product is
+     written mobile-first and sm is the unprefixed base. */
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1280px;
+}
+
+@layer base {
+  html {
+    /* So the form controls, scrollbars and focus rings the browser draws match a
+       dark ground without any of them being restyled by hand. */
+    color-scheme: dark;
+    /* Antialiased on a dark ground: without it, a light glyph on #0A0A0B is
+       rasterised with the platform's stem-darkening hinting, which thickens the
+       stems of a light face and costs the apparent weight the weight axis was
+       chosen for. Grayscale is the macOS half of the same pair. */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Legibility, not speed: this is a text-heavy trading UI, and the default
+       (auto) optimises for glyph throughput at the cost of kerning and
+       ligature placement. */
+    text-rendering: optimizeLegibility;
+    /* Dialog locks the root scroller while it is open. Without a gutter reserved up
+       front, that lock removes the scrollbar, widens the initial containing block and
+       relayouts the whole document — twice per dialog, once on open and once when the
+       lock is restored, which repaints every box on the page behind the scrim. The
+       gutter costs its own width on a route that never scrolls, and that is the
+       cheaper of the two. */
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    background-color: var(--pp-bg);
+    color: var(--pp-text);
+    font-family: var(--font-sans);
+    font-size: var(--pp-size-body);
+    line-height: var(--pp-lh-body);
+    /* The grotesk ships both pnum and tnum and defaults to pnum, whose digits
+       vary from 404 to 638 units, so a digit that changes width moves every
+       character after it. The places a number still reaches the grotesk — a
+       percentage inside the slippage warning's sentence, a relative time on a
+       trade row and a standard number like EIP-1167 in a proof sentence — are
+       prose, where the shift shows. Every standalone figure passes through
+       .mono; this declaration is what covers the ones left in prose, and makes
+       the figure style a property of the document instead of a class a site
+       has to remember. JetBrains Mono's digits are already 600 units wide, so
+       this is a no-op there. */
+    font-variant-numeric: tabular-nums;
+    /* 450, not 500: paragraphs sit at 16px next to labels at 600, and a body copy
+       weight equal to the label weight beside it flattens the hierarchy the
+       size steps are already carrying. 450 is inside the grotesk's 300-700 axis
+       and is the smallest move off 400 that holds its apparent weight on this
+       ground. */
+    font-weight: 450;
+  }
+
+  /* The ring of last resort. The theme clears Tailwind's own defaults
+     (--*: initial above), so a class string that drops its focus-visible token
+     compiles to no indicator at all rather than falling back to a browser one:
+     there is no default left to catch it. Every component that states its own
+     ring uses these same two pixels at this same offset, so this changes
+     nothing where a ring already exists and supplies one where none does — the
+     home tab links, the profile list links, and the radio and checkbox inputs in
+     the create flow. It sits in base, so a component's own utility still wins.
+
+     A component's utility has to win the style as well as the width: outline-none
+     sets --tw-outline-style to none on the element it is on, and outline-2 reads
+     that variable back, so the pair paints nothing until outline-solid restates
+     the solid the root theme already holds. */
+  :focus-visible {
+    outline: 2px solid var(--pp-accent-bright);
+    outline-offset: 2px;
+  }
+}
+
+/* Every number in the product goes through this class, and tabular-nums is
+   declared on body as well, so this restates only the family switch: a number
+   is set in JetBrains Mono and never in the grotesk. The repeated declaration
+   keeps the class self-describing if the body rule is ever narrowed. */
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The single border treatment in the system. DESIGN.md gives depth to this and to
+   the two surface steps, and to nothing else. */
+.hairline {
+  border: 1px solid var(--pp-hairline);
+  border-top-color: var(--pp-hairline-top);
+}
+
+/* A tiling hairline pattern at the opacity baked into the file. Fixed, so it does
+   not scroll with content, and inert so it never intercepts a pointer or reaches
+   the accessibility tree. */
+.pp-texture {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: url("/texture.svg");
+  background-repeat: repeat;
+}

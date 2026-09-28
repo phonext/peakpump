@@ -1,0 +1,10 @@
+.next/
+.turbo/
+next-env.d.ts
+*.tsbuildinfo
+.env*.local
+# Playwright failure artefacts: the -actual/-expected/-diff triples a failing
+# toHaveScreenshot writes. The baseline PNGs in e2e/baseline are committed on
+# purpose; only these regenerated-on-failure copies stay out.
+test-results/
+playwright-report/

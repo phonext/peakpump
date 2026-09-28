@@ -1,0 +1,139 @@
+// Eight models, exactly as SPEC 6.4 fixes them, and no chain data: no price,
+// balance, reserve, trade, holder amount or fee number lives in this schema.
+// The indexer owns every one of those; duplicating any of them here would
+// guarantee the two copies disagree. The sha256 and byte size on Upload are
+// facts about stored content, not about the chain.
+//
+// The pooled runtime URL (DATABASE_URL) and the direct migrate URL (DIRECT_URL)
+// both live in prisma.config.ts. Prisma 7 removed url and directUrl from the
+// datasource block outright, so the split survives as a split between two env
+// vars read there: migrate uses the direct connection because
+// Neon's pooled endpoint breaks migrations, and the runtime connects through
+// the pg driver adapter with the pooled one. The runtime never reads this file.
+
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+enum UploadKind {
+  IMAGE
+  METADATA
+}
+
+enum ReportTarget {
+  MARKET
+  COMMENT
+  ACCOUNT
+}
+
+enum ReportReason {
+  SPAM
+  IMPERSONATION
+  ABUSE
+  OTHER
+}
+
+model User {
+  id             String          @id @default(cuid())
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  wallets        Wallet[]
+  watchlistItems WatchlistItem[]
+  follows        Follow[]
+}
+
+model Wallet {
+  id        String   @id @default(cuid())
+  address   String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  comments  Comment[]
+  uploads   Upload[]
+  reports   Report[]
+
+  @@index([userId])
+}
+
+// The single-use SIWE challenge. A row is born bound to the address that
+// requested it and dies on that address's first successful verify; the TTL is
+// five minutes. Expired rows are deleted lazily by the next nonce request for
+// the same address, which is the only sweeper a testnet deployment needs.
+model SiweNonce {
+  id        String   @id @default(cuid())
+  nonce     String   @unique
+  address   String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([address])
+}
+
+// Flat by law: no threading, no replies, no nesting. body is nulled and
+// deletedAt set when the author soft-deletes, so the row is kept and the body
+// is replaced by a tombstone rather than hidden behind a flag.
+model Comment {
+  id         String    @id @default(cuid())
+  walletId   String
+  wallet     Wallet    @relation(fields: [walletId], references: [id])
+  market     String
+  body       String?
+  createdAt  DateTime  @default(now())
+  deletedAt  DateTime?
+
+  @@index([market, createdAt(sort: Desc)])
+  @@index([walletId, market, createdAt])
+}
+
+model WatchlistItem {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  market    String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, market])
+}
+
+model Follow {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  targetAddress String
+  createdAt     DateTime @default(now())
+
+  @@unique([userId, targetAddress])
+  @@index([targetAddress])
+}
+
+// One row per stored object, image or metadata document, addressed by the
+// sha256 of the original bytes. Dedupe remains the existence of the object in
+// the bucket; the row records who put it there and when.
+model Upload {
+  id               String     @id @default(cuid())
+  sha256           String     @unique
+  kind             UploadKind
+  byteSize         Int
+  uploaderWalletId String?
+  uploaderWallet   Wallet?    @relation(fields: [uploaderWalletId], references: [id])
+  createdAt        DateTime   @default(now())
+}
+
+// One report per reporter wallet per target. Triaged by direct database
+// query on testnet; there is no admin UI, no notification and no email.
+model Report {
+  id               String       @id @default(cuid())
+  reporterWalletId String
+  reporterWallet   Wallet       @relation(fields: [reporterWalletId], references: [id])
+  targetType       ReportTarget
+  targetId         String
+  reason           ReportReason
+  createdAt        DateTime     @default(now())
+
+  @@unique([reporterWalletId, targetType, targetId])
+}

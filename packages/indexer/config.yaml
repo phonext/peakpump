@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=./node_modules/envio/evm.schema.json
+name: peakpump-indexer
+description: Peakpump markets on the Arc testnet
+# Arc finality is instant and this indexer is a convenience layer, so no
+# reorg handling of any kind: nothing is ever rolled back and nothing waits for
+# confirmations. Entities are per-chain by default, and this is a single-chain
+# indexer.
+rollback_on_reorg: false
+disable_default_cross_chain: true
+# The web client passes viem checksummed addresses in every where clause, so the
+# stored form has to be checksummed too or no filter ever matches.
+address_format: checksum
+contracts:
+  # ABIs are read from packages/contracts-abi, the one place they live; none is
+  # ever hand-written here. Events are referenced by their ABI names.
+  - name: PeakpumpFactory
+    abi_file_path: ../contracts-abi/abi/PeakpumpFactory.json
+    handler: src/handlers/Factory.ts
+    events:
+      - event: MarketCreated
+      - event: MarketMetadata
+  - name: FeeVault
+    abi_file_path: ../contracts-abi/abi/FeeVault.json
+    handler: src/handlers/FeeVault.ts
+    events:
+      # Credited carries no curve field, so its curve is recovered by joining
+      # the transaction hash against the Trade rows; that is why Trade,
+      # TradeDetail and Credited all select the transaction hash.
+      - event: Credited
+        field_selection:
+          transaction_fields: [hash]
+      - event: Claimed
+  - name: Curve
+    # No address: every market's curve is registered dynamically from
+    # MarketCreated (see src/handlers/Factory.ts).
+    abi_file_path: ../contracts-abi/abi/Curve.json
+    handler: src/handlers/Curve.ts
+    events:
+      - event: Trade
+        field_selection:
+          transaction_fields: [hash]
+      - event: TradeDetail
+        field_selection:
+          transaction_fields: [hash]
+      - event: Summit
+  - name: PeakToken
+    # No address either, and Transfer is subscribed only through this contract,
+    # never by topic: the chain-wide native-USDC emitter and the ERC-20 USDC
+    # contract both fire Transfer for every payout and would double count it.
+    abi_file_path: ../contracts-abi/abi/PeakToken.json
+    handler: src/handlers/PeakToken.ts
+    events:
+      - event: Transfer
+chains:
+  - id: 5042002
+    # The factory deployment block from contracts/deployments/arc-testnet.json.
+    # A start block of 0 is forbidden: the chain is tens of millions of blocks
+    # past that and the backfill would never finish. A vitest test pins this
+    # literal and the two addresses below against that file so they cannot drift.
+    start_block: 59806903
+    hypersync_config:
+      url: https://arc-testnet.hypersync.xyz
+    # No reorg depth and no block lag: never wait for confirmations.
+    max_reorg_depth: 0
+    block_lag: 0
+    contracts:
+      - name: PeakpumpFactory
+        address: "0xfEe1364fB456c82d56Bb0344ea4A1082bD527a1e"
+      - name: FeeVault
+        address: "0xFA715612B06a50F82C1A00931df18215f0fE8ea8"
+      - name: Curve
+      - name: PeakToken
