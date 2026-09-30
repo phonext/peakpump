@@ -14,13 +14,13 @@ contracts:
   # ABIs are read from packages/contracts-abi, the one place they live; none is
   # ever hand-written here. Events are referenced by their ABI names.
   - name: PeakpumpFactory
-    abi_file_path: ../contracts-abi/abi/PeakpumpFactory.json
+    abi_file_path: ./abi/PeakpumpFactory.json
     handler: src/handlers/Factory.ts
     events:
       - event: MarketCreated
       - event: MarketMetadata
   - name: FeeVault
-    abi_file_path: ../contracts-abi/abi/FeeVault.json
+    abi_file_path: ./abi/FeeVault.json
     handler: src/handlers/FeeVault.ts
     events:
       # Credited carries no curve field, so its curve is recovered by joining
@@ -33,7 +33,7 @@ contracts:
   - name: Curve
     # No address: every market's curve is registered dynamically from
     # MarketCreated (see src/handlers/Factory.ts).
-    abi_file_path: ../contracts-abi/abi/Curve.json
+    abi_file_path: ./abi/Curve.json
     handler: src/handlers/Curve.ts
     events:
       - event: Trade
@@ -47,7 +47,7 @@ contracts:
     # No address either, and Transfer is subscribed only through this contract,
     # never by topic: the chain-wide native-USDC emitter and the ERC-20 USDC
     # contract both fire Transfer for every payout and would double count it.
-    abi_file_path: ../contracts-abi/abi/PeakToken.json
+    abi_file_path: ./abi/PeakToken.json
     handler: src/handlers/PeakToken.ts
     events:
       - event: Transfer
