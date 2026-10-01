@@ -75,7 +75,10 @@ const SCRIPT_SRC =
 const CSP = [
   "default-src 'self'",
   `connect-src 'self' ${CONNECT_ORIGINS.join(" ")}`,
-  `img-src 'self' data:${R2_ORIGIN ? ` ${R2_ORIGIN}` : ""}`,
+  // blob: is the create page's local preview: ImageCropper object-URLs the
+  // selected file before it is ever uploaded, so the <img> it feeds is a blob:
+  // load the bucket-origin grant does not cover.
+  `img-src 'self' data: blob:${R2_ORIGIN ? ` ${R2_ORIGIN}` : ""}`,
   // 'unsafe-inline' is required, not a residual: eleven call sites set a length
   // at runtime that no static stylesheet can express — the chart canvases size
   // themselves to a measured box, the virtualised lists pad to their overscan,
