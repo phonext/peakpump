@@ -1,5 +1,5 @@
 import type { Address } from "envio";
-import deployment from "../../../contracts/deployments/arc-testnet.json";
+import deployment from "../deployments/arc-testnet.json";
 
 // Addresses live in exactly one place, the deployment record the deploy script
 // wrote. Read non-strictly: only the keys needed, and the

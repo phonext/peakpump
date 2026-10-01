@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import deployment from "../../../contracts/deployments/arc-testnet.json";
+import deployment from "../deployments/arc-testnet.json";
 
 // The literals in config.yaml are the one place this package repeats facts
 // from the deployment record; this test is what keeps them from drifting.
