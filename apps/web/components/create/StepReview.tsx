@@ -12,11 +12,13 @@ import { type UseQueryResult } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { parseEventLogs } from "viem";
+import { SignInDialog } from "@/components/social/SignInDialog";
 import { TradeStatus } from "@/components/trade/TradeStatus";
 import { ReadFailure } from "@/components/token/ReadFailure";
 import { ConnectWallet } from "@/components/wallet/ConnectWallet";
 import { useCreateParams } from "@/hooks/useCreateParams";
 import { useGasEstimate } from "@/hooks/useGasEstimate";
+import { useSession } from "@/hooks/useSession";
 import { useTrade } from "@/hooks/useTrade";
 import { MICRO_TO_WEI } from "@/lib/curve-write";
 import {
@@ -25,6 +27,7 @@ import {
   type CreateState,
   type EconomicsParams,
 } from "@/lib/create-state";
+import { storeIdentityDocument } from "@/lib/create-submit";
 import { publicClient } from "@/lib/viem";
 
 // Step 3: everything the two earlier steps chose, on one page, beside what the
@@ -88,48 +91,7 @@ function createArgs(name: string, symbol: string, p: EconomicsParams, metadataUR
   ] as const;
 }
 
-const METADATA_UNREACHABLE = "The metadata document could not be stored. Try again.";
-
-type Stored = { kind: "stored"; metadataURI: string } | { kind: "failed"; message: string };
-
-// The document is stored before any signature exists, because metadataURI is an
-// argument of create() itself: the market cannot be created first and annotated
-// later. The image is still absent: the upload route already exists and is
-// session-gated, but this flow does not send the cropper's bytes through it,
-// so the document carries no image field and the review step says so beside the
-// cropper's own preview. Every failure the route defines already carries a
-// sentence written for a person; anything else is the one generic fallback.
-async function storeMetadata(identity: CreateState["identity"]): Promise<Stored> {
-  try {
-    const response = await fetch("/api/metadata", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        name: identity.name,
-        symbol: identity.symbol,
-        // An absent field is omitted rather than written null, matching the
-        // route's own canonical form.
-        ...(identity.description === "" ? {} : { description: identity.description }),
-      }),
-    });
-    if (!response.ok) {
-      const body: unknown = await response.json().catch(() => null);
-      return {
-        kind: "failed",
-        message:
-          body !== null && typeof (body as { error?: unknown }).error === "string"
-            ? (body as { error: string }).error
-            : METADATA_UNREACHABLE,
-      };
-    }
-    return {
-      kind: "stored",
-      metadataURI: ((await response.json()) as { metadataURI: string }).metadataURI,
-    };
-  } catch {
-    return { kind: "failed", message: METADATA_UNREACHABLE };
-  }
-}
+const NO_SESSION = "Sign in to store an image with the token.";
 
 interface StepReviewProps {
   state: CreateState;
@@ -139,6 +101,8 @@ interface StepReviewProps {
 export function StepReview({ state, maxDevBuy }: StepReviewProps) {
   const createParams = useCreateParams();
   const params = createParams.data;
+  const session = useSession();
+  const [signInOpen, setSignInOpen] = useState(false);
   const econ = economics(state);
   const preview = derivedPreview(state);
   const run = useTrade();
@@ -222,16 +186,28 @@ export function StepReview({ state, maxDevBuy }: StepReviewProps) {
 
   const busy = storing || run.stage === "signing" || run.stage === "pending";
 
+  // Uploading needs a session the create transaction itself does not: the wallet is
+  // connected for the signature, and signing in is a second, free action (SPEC
+  // 6.7:588). An unsigned creator holding an image is stopped here rather than at the
+  // route, because a 401 after the bytes are in flight is a worse place to learn it —
+  // the market is not yet created, but neither is the image the creator chose.
+  const imageNeedsSignIn = state.identity.image !== null && session.address === null && !session.pending;
+  const signInReason = imageNeedsSignIn ? NO_SESSION : null;
+
   // An arrow const rather than a function declaration: the narrowing above has
   // already established both structs exist, and a hoisted declaration would ask
   // this to prove it a second time.
   const onSubmit = async () => {
     if (params === undefined || estimate === null || run.submit === undefined) return;
+    if (imageNeedsSignIn) {
+      setSignInOpen(true);
+      return;
+    }
     run.reset();
     setMetadataError(null);
     setMarketError(null);
     setStoring(true);
-    const stored = await storeMetadata(state.identity);
+    const { stored } = await storeIdentityDocument(state.identity);
     setStoring(false);
     if (stored.kind === "failed") {
       setMetadataError(stored.message);
@@ -274,7 +250,8 @@ export function StepReview({ state, maxDevBuy }: StepReviewProps) {
                 className="hairline rounded-pp block h-24 w-24"
               />
               <p className="text-small text-pp-text-muted">
-                The image is not stored yet, so this market is created without one.
+                Stored with the market when it is created. Storing an image needs a
+                signed-in wallet.
               </p>
             </div>
           )}
@@ -374,6 +351,7 @@ export function StepReview({ state, maxDevBuy }: StepReviewProps) {
                   params === undefined ||
                   estimate === null ||
                   devBuyReason !== null ||
+                  signInReason !== null ||
                   busy ||
                   // Settled routes away, but until it does, a second press would
                   // create a second market rather than repeat a trade.
@@ -385,6 +363,17 @@ export function StepReview({ state, maxDevBuy }: StepReviewProps) {
               >
                 Create token
               </Button>
+
+              {signInReason !== null ? (
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-small text-pp-text-muted">{signInReason}</p>
+                  <Button size="sm" onClick={() => setSignInOpen(true)}>
+                    Sign in
+                  </Button>
+                </div>
+              ) : null}
+
+              <SignInDialog open={signInOpen} onClose={() => setSignInOpen(false)} />
 
               {devBuyReason !== null ? (
                 <p className="text-small text-pp-down">{devBuyReason}</p>

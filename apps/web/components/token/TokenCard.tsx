@@ -70,9 +70,18 @@ function Sparkline({ closes }: { closes: readonly bigint[] }) {
   );
 }
 
-export function TokenCard({ market, sparkline }: {
+export function TokenCard({
+  market,
+  sparkline,
+  image,
+}: {
   market: MarketRow;
   sparkline: readonly bigint[] | null;
+  // The market's own picture, resolved from its metadataURI by the page. Null is the
+  // identicon's case, and the component keeps its own failed-load fallback, so a
+  // document whose image is unreachable still renders something rather than breaking
+  // the card it sits in.
+  image: string | null;
 }) {
   const bps = marketProgressBps(market);
   const label = market.name ?? market.symbol ?? market.id;
@@ -83,7 +92,7 @@ export function TokenCard({ market, sparkline }: {
       className="hairline rounded-pp bg-pp-surface pp-press pp-lift flex w-[220px] shrink-0 flex-col gap-3 p-4 outline-none focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pp-accent-bright"
     >
       <div className="flex items-center gap-3">
-        <TokenImage address={market.id} alt={`Identicon for ${label}`} size={64} />
+        <TokenImage address={market.id} alt={`Image for ${label}`} size={64} src={image ?? undefined} />
         <div className="min-w-0">
           <p className="text-body text-pp-text truncate font-medium">{label}</p>
           {market.symbol !== null ? (

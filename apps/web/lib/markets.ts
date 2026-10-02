@@ -1,4 +1,5 @@
 import type { Address } from "viem";
+import { cache } from "react";
 import { indexerQuery } from "@/lib/graphql";
 
 // The Token entity behind every market list: the home page's rail, its table
@@ -330,13 +331,19 @@ export async function fetchMarketCurves(limit: number): Promise<Address[] | null
 // The watchlist tab's second half: the saved curve addresses are the reader's
 // own order (most recently saved first), so the rows are re-sorted to it after
 // the fetch rather than inheriting the indexer's marketId order.
-export async function fetchMarketsByIds(ids: readonly Address[]): Promise<MarketRow[] | null> {
-  if (ids.length === 0) return [];
+// Memoised, because the token route reads the same market twice in one request —
+// generateMetadata for the title and the page for its metadataURI — and the
+// indexer is a POST the platform's own fetch deduplication does not cover, only
+// GET. React's cache() keys object arguments in a WeakMap by identity, and every
+// caller passes a fresh array, so the memo key is the joined addresses and the
+// exported wrapper is what holds the array.
+const readMarketsByIds = cache(async (joined: string): Promise<MarketRow[] | null> => {
+  const ids = joined.split(",");
   const data = await indexerQuery<{ Token: Raw<MarketRow>[] }>(
     `query MarketsByIds($ids: [String!], $limit: Int!) {
       Token(where: {id: {_in: $ids}}, order_by: {marketId: desc}, limit: $limit) { ${MARKET_FIELDS} }
     }`,
-    { ids: [...ids], limit: ids.length },
+    { ids, limit: ids.length },
   );
   if (data === null) return null;
   const byId = new Map(
@@ -349,4 +356,9 @@ export async function fetchMarketsByIds(ids: readonly Address[]): Promise<Market
     const market = byId.get(id.toLowerCase());
     return market === undefined ? [] : [market];
   });
+});
+
+export async function fetchMarketsByIds(ids: readonly Address[]): Promise<MarketRow[] | null> {
+  if (ids.length === 0) return [];
+  return await readMarketsByIds(ids.join(","));
 }

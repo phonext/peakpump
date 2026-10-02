@@ -5,6 +5,7 @@ import Link from "next/link";
 import { MarketsTableBody, MarketRowLine, WatchlistTableBody } from "@/components/home/MarketsTable";
 import { TokenCard } from "@/components/token/TokenCard";
 import { fetchCandles } from "@/lib/graphql";
+import { fetchMarketImage } from "@/lib/market-image";
 import {
   ASCENT_FETCH_LIMIT,
   MARKET_PAGE_SIZE,
@@ -104,6 +105,14 @@ export default async function MarketsPage({
             return candles === null ? null : candles.map((candle) => candle.close);
           }),
         );
+  // One picture per rail card, resolved beside its sparkline because both are the
+  // card's own data and neither depends on the other. A market whose metadataURI is
+  // empty, foreign or unreachable answers null, and the identicon draws instead —
+  // the same contract a failed image load falls back to inside TokenImage itself.
+  const railImages =
+    railMarkets === null
+      ? null
+      : await Promise.all(railMarkets.map(async (market) => fetchMarketImage(market.metadataURI)));
 
   // The server-rendered tabs' first page. Watchlist skips this: its rows are
   // the viewer's own and arrive in the island.
@@ -166,6 +175,7 @@ export default async function MarketsPage({
                 <TokenCard
                   market={market}
                   sparkline={railSparklines?.[index] ?? null}
+                  image={railImages?.[index] ?? null}
                 />
               </li>
             ))}

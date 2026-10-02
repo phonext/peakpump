@@ -21,6 +21,7 @@ import { SummitCelebration } from "@/components/feedback/SummitCelebration";
 import { StickyTradeBar } from "@/components/trade/StickyTradeBar";
 import { TradePanel } from "@/components/trade/TradePanel";
 import { fetchMarketsByIds } from "@/lib/markets";
+import { fetchMarketImage } from "@/lib/market-image";
 
 // One grid, placed explicitly. The document order below is the stacking order DESIGN.md
 // fixes — identity, trade panel, chart, progress, trades, holders, comments — and the
@@ -79,14 +80,23 @@ export default async function TokenPage({ params }: { params: Promise<{ curve: s
   const { curve: segment } = await params;
   const curve = readCurve(segment);
 
+  // The market's own picture, resolved the way the home page resolves it: the URI on
+  // chain is a document address, and the document names the image. The page already
+  // reads this market for its title, so the indexer round trip is shared and not
+  // added. An empty, foreign or unreachable URI answers null and the identicon draws.
+  const markets = await fetchMarketsByIds([curve]);
+  const market = markets === null ? null : (markets[0] ?? null);
+  const image = market === null ? null : await fetchMarketImage(market.metadataURI);
+
   return (
     <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[280px_1fr_360px] lg:items-start">
       <Panel as="section" title="Token" className={PLACE.identity}>
         <div className="flex flex-col gap-4">
-          {/* No src, so the deterministic identicon draws from the curve address. The
-              alt is the address as it is printed below, not the word "token": the image
+          {/* The picture the creator chose when one exists, and the deterministic
+              identicon otherwise. The identicon derives from the curve address, so
+              the alt names the market rather than the word "token": the image
               identifies one market and two markets never draw the same. */}
-          <TokenImage address={curve} alt={`Token ${formatAddress(curve)}`} size={64} />
+          <TokenImage address={curve} alt={`Token ${formatAddress(curve)}`} size={64} src={image ?? undefined} />
           <TokenIdentity curve={curve} />
           <LivePrice curve={curve} />
           <MarketCap curve={curve} />
