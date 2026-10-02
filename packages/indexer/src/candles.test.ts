@@ -131,5 +131,9 @@ describe("candle bucketing", () => {
     expect(token.tradeCount).toBe(5);
     expect(token.volume6).toBe(7_500_000n);
     expect(token.priceX18).toBe(3n * E30);
+    // y tracks the last trade, not the creation zero: the lists derive
+    // sold = y0 - y from it, so a stale 0n would read the whole pre-Summit
+    // supply as sold. The last trade sold 300_000 of y0 1_000_000.
+    expect(token.y).toBe(700_000n);
   });
 });

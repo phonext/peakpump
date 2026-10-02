@@ -89,6 +89,10 @@ indexer.onEvent(
       tradeCount: token.tradeCount + 1,
       volume6: token.volume6 + volumeLeg,
       priceX18: price,
+      // y is written here and not only at the Summit: the lists derive sold from
+      // it as y0 - y, so a field left at its creation value of 0n reports the
+      // whole pre-Summit supply as sold and every ASCENT market reads 133.3%.
+      y,
     });
 
     const global = await context.Global.getOrCreate(EMPTY_GLOBAL);

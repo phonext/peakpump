@@ -180,8 +180,14 @@ export async function fetchMarkets(
   return rows;
 }
 
+// Envio's GraphQL is Hasura under the hood, so a by-id select is the list form
+// with an equality filter, not TheGraph's `Entity(id:)` argument — that argument
+// does not exist on the root field and the endpoint answers a query carrying it
+// with a validation error, which indexerQuery reports as the indexer being
+// offline. Every query in this file and graphql.ts already used the list form;
+// these two were the only holdouts.
 const GLOBAL_QUERY = `query GlobalTotals {
-  Global(id: "global") { totalMarkets totalTrades totalVolume6 totalCreatorFees6 }
+  Global(where: {id: {_eq: "global"}}, limit: 1) { totalMarkets totalTrades totalVolume6 totalCreatorFees6 }
 }`;
 
 export async function fetchGlobal(): Promise<GlobalRow | null> {
@@ -205,7 +211,7 @@ export interface CreatorRow {
 }
 
 const CREATOR_QUERY = `query Creator($id: String!) {
-  Creator(id: $id) { id totalCreatorFees6 claimed6 marketCount }
+  Creator(where: {id: {_eq: $id}}, limit: 1) { id totalCreatorFees6 claimed6 marketCount }
 }`;
 
 export async function fetchCreator(id: Address): Promise<CreatorRow | null> {
