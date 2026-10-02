@@ -39,7 +39,14 @@ indexer.onEvent(
       creationFee6: p.creationFee6,
       phase: 0,
       raised6: 0n,
-      y: 0n,
+      // MATH 4: y = y0 - sold while ASCENT, and sold is zero at creation, so y
+      // starts at y0. A 0n initializer makes the lists derive sold = y0 - 0 = y0
+      // and every market that never trades reads the whole pre-Summit supply as
+      // sold — 133.3% at the preset ratio. The Trade and Summit handlers are
+      // what move it after this.
+      y: p.y0,
+      // The event carries no start price (x0 is not in it), so an untraded
+      // market has no traded figure for a list to show until its first Trade.
       priceX18: 0n,
       creatorFees6: 0n,
       holderCount: 0,

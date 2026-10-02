@@ -66,6 +66,10 @@ describe("market creation", () => {
     expect(token.volume6).toBe(0n);
     expect(token.creatorFees6).toBe(0n);
     expect(token.timestamp).toBe(BigInt(TS));
+    // y starts at y0, not zero: MATH 4 has y = y0 - sold and sold is zero here,
+    // so an untraded market derives sold = 0 and reads 0%. A 0n initializer
+    // would read the whole pre-Summit supply as sold and show 133.3%.
+    expect(token.y).toBe(token.y0);
 
     const creator = await indexer.Creator.getOrThrow(CREATOR);
     expect(creator.marketCount).toBe(1);
