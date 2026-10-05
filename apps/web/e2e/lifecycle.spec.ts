@@ -157,6 +157,16 @@ test.describe.serial("full market lifecycle", () => {
     await page.getByRole("button", { name: "Sell" }).click();
     await expect(page.getByText("Sold.")).toBeVisible({ timeout: 30_000 });
 
+    // A fresh load of a market already past its Summit. Every step above ran on a
+    // page that read this market's params before the crossing, so useMarketParams
+    // held the pre-Summit x0 and the route chart drew from it. This reload has never
+    // seen the market, so x0 arrives as the 0n _summit() left behind and the frame
+    // has to be drawn without the field it was built from. The caption below only
+    // renders in the branch that finished drawing, which is why a reload is the leg
+    // that covers it and a same-page trade is not.
+    await page.reload();
+    await expect(page.getByText("What is drawn is the ascent it climbed")).toBeVisible();
+
     // The curve address this test created is not used after the navigation, but
     // it is returned so a later leg can reach the same market without recreating
     // it.

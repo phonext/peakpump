@@ -51,8 +51,14 @@ function capFromClose(closeX18: bigint, S: bigint): bigint {
 
 // MATH [3] gives x1*y1 = x0*y0, so the reserve at the Summit follows from three stored
 // fields, and the price and the cap there come from the shared [9] and [10].
+//
+// _summit() zeroes x0 and never restores it (Curve.sol:396), so past the Summit x1 is 0n
+// and the level would be drawn at a price of nothing. The line is a reference for a climb
+// still to come; a market already over the Summit has the crossing in the history this
+// same chart draws.
 function summitLevel(params: MarketParams | undefined, format: ChartFormat): number | null {
   if (params === undefined) return null;
+  if (params.x0 === 0n) return null;
   const x1 = (params.x0 * params.y0) / params.y1;
   return format === "price"
     ? toPrice(priceX18(x1, params.y1))

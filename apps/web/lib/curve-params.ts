@@ -2,13 +2,18 @@ import { CurveAbi, PeakTokenAbi } from "@peakpump/contracts-abi";
 import type { Address } from "viem";
 import type { ReadClient } from "@/lib/viem";
 
-// Everything here is written once, at initialize, and has no setter: S, Ts, x0,
-// y0 and y1 come from MATH 3, token and creator from the factory's create call,
-// and PeakToken's name, symbol and supply from its own initialize. That is why
-// useMarketParams may hold them forever while every live figure keeps
-// LIVE_READ_QUERY_OPTIONS. feeBps is deliberately absent: it is a snapshot the
-// market carries and readTokenLive already returns it beside the price it applies
-// to.
+// Everything here is written once, at initialize, and has no setter: S, Ts, y0 and y1
+// come from MATH 3, token and creator from the factory's create call, and PeakToken's
+// name, symbol and supply from its own initialize. That is why useMarketParams may hold
+// them forever while every live figure keeps LIVE_READ_QUERY_OPTIONS.
+//
+// x0 is the exception, and the one field a market can change: _summit() zeroes it at the
+// Summit and never restores it (Curve.sol:396), so a market past the crossing reads 0n
+// here and every ASCENT figure built from it — the route chart's whole frame — collapses.
+// Consumers that need the ASCENT scale past the Summit have to recover it; the route
+// chart takes it from the raise the crossing froze. feeBps is deliberately absent: it is
+// a snapshot the market carries and readTokenLive already returns it beside the price it
+// applies to.
 export interface MarketParams {
   token: Address;
   creator: Address;

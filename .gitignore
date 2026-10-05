@@ -6,3 +6,5 @@ contracts/lcov.info
 .turbo/
 # Playwright CLI output (may contain credentials)
 .playwright-cli/
+.vercel
+.env*

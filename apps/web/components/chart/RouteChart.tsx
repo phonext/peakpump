@@ -6,80 +6,27 @@ import { Skeleton } from "@peakpump/ui/Skeleton";
 import { type ReactNode, useMemo } from "react";
 import type { Address } from "viem";
 import { CHART_HEIGHT } from "@/components/chart/ChartFrame";
+import { ascentScale, frameOf, place, routePaths } from "@/components/chart/route-frame";
 import { ReadFailure } from "@/components/token/ReadFailure";
 import { useMarketParams } from "@/hooks/useMarketParams";
 import { useTokenLive } from "@/hooks/useTokenLive";
-import type { MarketParams } from "@/lib/curve-params";
 import type { TokenLive } from "@/lib/curve-reads";
 import { type Simulation, useSimulation } from "@/lib/trade-simulation";
 
-// The route to the Summit: price against tokens sold, drawn from the three stored fields
-// a market can never change. It needs no history and no indexer, which makes it the one
-// chart on this page that is never empty and the only one that draws with the chain
-// alone.
+// The route to the Summit: price against tokens sold, drawn from the stored fields a
+// market can never change — and from one it can only lose. It needs no history and no
+// indexer, which makes it the one chart on this page that is never empty and the only
+// one that draws with the chain alone.
+//
+// The geometry is in route-frame.ts, beside its test: the frame is the one part of this
+// page that is pure market math, and _summit() makes one of its inputs — x0 — a value a
+// market can lose, which is the case the test beside it exists to hold.
 //
 // Hand-drawn SVG rather than the chart library: that library's horizontal axis is a time
 // scale and this one is a token amount. It also keeps the signature view outside the
 // 60 kB the price chart already spends.
 
 const FIGURE = "mono text-body text-pp-text break-all md:text-small";
-
-// Sixty-five points across the domain, which is finer than the pixels a 280px frame has
-// for a curve that is smooth and monotone over the whole of it.
-const SAMPLES = 64;
-
-// The reserve at any point on the route, from the invariant rather than from a formula of
-// this file's own: MATH [3] conserves k = x*y across every ASCENT trade, so x is x0*y0
-// over the supply that is left. Floored, like every division on chain.
-function reserveAt(params: MarketParams, y: bigint): bigint {
-  return (params.x0 * params.y0) / y;
-}
-
-// A position inside the box, in percent. The ratio is taken in basis points so the only
-// value ever coerced to a float is an integer below ten thousand and one and never a
-// chain figure; a hundredth of a percent is a third of a pixel at this frame's height.
-// Both ends are clamped because the pool's rounding runs in its own favour, which can put
-// the live price a unit or two above the sampled route, and a marker outside the box
-// would sit in the panel's padding.
-function place(value: bigint, low: bigint, high: bigint): number {
-  const bps = ((value - low) * 10_000n) / (high - low);
-  return Number(bps < 0n ? 0n : bps > 10_000n ? 10_000n : bps) / 100;
-}
-
-// The two ends of the route are the two ends of the frame, so the curve touches all four
-// sides and no axis needs a scale printed down it. The top is the price the contract will
-// hold at the Summit — y1 as stored, with its own reserve — rather than an interpolation
-// towards it.
-interface Frame {
-  Ts: bigint;
-  low: bigint;
-  high: bigint;
-}
-
-function frameOf(params: MarketParams): Frame {
-  return {
-    Ts: params.Ts,
-    low: priceX18(params.x0, params.y0),
-    high: priceX18(reserveAt(params, params.y1), params.y1),
-  };
-}
-
-// One pass, two paths: the line and the fill under it. The viewBox is 100 by 100 and the
-// SVG stretches it to the box, which is what lets these coordinates and the CSS
-// percentages the markers are positioned with be the same numbers.
-function routePaths(params: MarketParams, frame: Frame): { line: string; area: string } {
-  const points: string[] = [];
-  for (let i = 0; i <= SAMPLES; i += 1) {
-    const sold = (frame.Ts * BigInt(i)) / BigInt(SAMPLES);
-    const y = params.y0 - sold;
-    const price = priceX18(reserveAt(params, y), y);
-    const left = place(sold, 0n, frame.Ts).toFixed(2);
-    const top = (100 - place(price, frame.low, frame.high)).toFixed(2);
-    points.push(`${left},${top}`);
-  }
-  const line = `M${points.join("L")}`;
-  return { line, area: `${line}L100,100L0,100Z` };
-}
 
 // Where the panel's current quote lands on the route. Both coordinates are the quote
 // struct's own outputs applied to the live reserves: a buy adds net6 and takes tokensOut,
@@ -155,15 +102,20 @@ export function RouteChart({ curve }: { curve: Address }) {
   const live = useTokenLive(curve);
   const sim = useSimulation();
 
-  // Keyed on the query's own object, which never changes: useMarketParams holds these
-  // fields forever because none of them has a setter. So the path is built once per
-  // market and a two-second price poll re-runs none of this.
+  // The scale the ASCENT prices are drawn with. Every field useMarketParams holds is
+  // fixed at initialize except x0, which _summit() zeroes and never restores — so a
+  // market loaded past the Summit reads 0n and the scale comes from the raise the
+  // crossing froze instead (ascentScale). A bigint either way, so the memo below stays
+  // settled: in ASCENT no two-second poll touches params.x0, and in PEAK raised6 is
+  // frozen at the crossing.
+  const ascentX0 = ascentScale(params.data, live.data?.usdcRaised6);
+
   const plot = useMemo(() => {
     const data = params.data;
-    if (data === undefined) return null;
-    const frame = frameOf(data);
-    return { frame, ...routePaths(data, frame) };
-  }, [params.data]);
+    if (data === undefined || ascentX0 === undefined) return null;
+    const frame = frameOf(data, ascentX0);
+    return { frame, ...routePaths(data, ascentX0, frame) };
+  }, [params.data, ascentX0]);
 
   if (params.isError) return <ReadFailure error={params.error} onRetry={params.refetch} />;
   if (plot === null) {
@@ -172,7 +124,8 @@ export function RouteChart({ curve }: { curve: Address }) {
     // the panel grew by the height of both on arrival. The two legends are the two
     // that render once the live read lands alongside the params one this gate waits
     // on; a simulation adds a third, and that is a reader's own action rather than
-    // content arriving.
+    // content arriving. A market past the Summit waits on that read for its scale as
+    // well as its markers, because the climb's prices come from the raise it froze.
     return (
       <div className="flex flex-col gap-3">
         <Skeleton width="100%" height={CHART_HEIGHT} radius={false} />
@@ -285,8 +238,10 @@ export function RouteChart({ curve }: { curve: Address }) {
         </p>
       ) : null}
 
-      {/* The route is the stored geometry and draws without the live read, so a failure of
-          that read costs the two markers and nothing else. */}
+      {/* In ASCENT the route is the stored geometry and draws without the live read, so a
+          failure of that read costs the two markers and nothing else. Past the Summit the
+          scale itself comes from it, so the same failure costs the canvas — and the read
+          failure is the one a market past its Summit can no longer do without. */}
       {live.isError ? <ReadFailure error={live.error} onRetry={live.refetch} /> : null}
     </div>
   );
