@@ -4,11 +4,15 @@ import { Button } from "@peakpump/ui/Button";
 import { Dialog } from "@peakpump/ui/Dialog";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useWalletState } from "@/lib/wallet-state";
 
 // The four pages a reader can reach by name. The other two routes take a parameter, so
-// they are not listed: there is nothing to navigate to without a curve or an address.
-// No search index and no fuzzy matching — the page set is closed at six, and a list of
-// four is shorter than the query that would narrow it.
+// the token route is not listed: there is nothing to navigate to without a curve. A
+// profile takes one too, but a connected wallet is itself an address — the one the
+// reader can name without having to paste it — so it is the fifth entry when there is
+// one, and absent when there is not. No search index and no fuzzy matching — the page
+// set is closed at six, and a list of five is shorter than the query that would
+// narrow it.
 const ROUTES = [
   { href: "/", label: "Markets", detail: "Every token on the curve" },
   { href: "/create", label: "Create", detail: "Launch a token" },
@@ -18,6 +22,22 @@ const ROUTES = [
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
+  const { address, isConnected } = useWalletState();
+
+  // The store starts disconnected and the lazy wallet layer is what populates it, so
+  // this reads undefined on the server and on a cold session and the entry appears
+  // when the layer publishes the account — the same moment the header's address does.
+  const routes =
+    isConnected && address !== undefined
+      ? [
+          ...ROUTES,
+          {
+            href: `/profile/${address}`,
+            label: "Your profile",
+            detail: "What you created, hold and earned",
+          },
+        ]
+      : ROUTES;
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -66,7 +86,7 @@ export function CommandPalette() {
         }
       >
         <ul className="flex flex-col gap-2">
-          {ROUTES.map((route) => (
+          {routes.map((route) => (
             <li key={route.href}>
               <Link
                 href={route.href}

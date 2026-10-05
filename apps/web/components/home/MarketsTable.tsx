@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useState } from "react";
 import type { Address } from "viem";
 import { SignInDialog } from "@/components/social/SignInDialog";
+import { TokenImage } from "@/components/token/TokenImage";
 import { useSession } from "@/hooks/useSession";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import {
@@ -48,7 +49,17 @@ function cursorFor(tab: MarketTab, rows: readonly MarketRow[]) {
     : { marketId: last.marketId };
 }
 
-export function MarketRowLine({ market }: { market: MarketRow }) {
+export function MarketRowLine({
+  market,
+  image,
+}: {
+  market: MarketRow;
+  // The market's own picture, resolved from its metadataURI by the page the way the
+  // rail card's is. Undefined is the identicon's case — a market made without a
+  // picture, or a row "More" appended, which arrives from the client and has no
+  // server resolution. A list renders with or without a picture either way.
+  image?: string | null;
+}) {
   const bps = marketProgressBps(market);
   const label = market.name ?? market.symbol ?? market.id;
   return (
@@ -64,6 +75,13 @@ export function MarketRowLine({ market }: { market: MarketRow }) {
           href={`/token/${market.id}`}
           className="after:absolute after:inset-0 after:z-10 flex min-w-0 items-center gap-2 outline-none focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pp-accent-bright"
         >
+          <TokenImage
+            address={market.id}
+            alt={`Image for ${label}`}
+            size={24}
+            src={image ?? undefined}
+            className="shrink-0"
+          />
           <span className="text-body text-pp-text truncate font-medium md:text-small">{label}</span>
           {market.symbol !== null ? (
             <span className={MUTED}>{market.symbol}</span>
@@ -86,9 +104,17 @@ export function MarketRowLine({ market }: { market: MarketRow }) {
   );
 }
 
-export function MarketsTableBody({ tab, initialRows }: {
+export function MarketsTableBody({
+  tab,
+  initialRows,
+  initialImages,
+}: {
   tab: Exclude<MarketTab, "ascent">;
   initialRows: readonly MarketRow[];
+  // Paired with initialRows by position, the way the rail's sparklines and
+  // pictures are. A row appended by "More" has no entry here and draws the
+  // identicon.
+  initialImages: readonly (string | null)[];
 }) {
   const [rows, setRows] = useState<readonly MarketRow[]>(initialRows);
   const [loading, setLoading] = useState(false);
@@ -112,8 +138,8 @@ export function MarketsTableBody({ tab, initialRows }: {
 
   return (
     <>
-      {rows.map((market) => (
-        <MarketRowLine key={market.id} market={market} />
+      {rows.map((market, index) => (
+        <MarketRowLine key={market.id} market={market} image={initialImages[index]} />
       ))}
       {offline ? (
         <tr>

@@ -3,10 +3,12 @@
 import { useState } from "react";
 import { hashAddress } from "@/lib/hash";
 
-// Three sizes, because those are the three places an image appears: a table row, a
-// token page and the brand sample. A free number would mean a fourth layout nobody
-// designed.
-export type TokenImageSize = 64 | 256 | 512;
+// Four sizes, because the image has four rendered boxes: a table row at 24, the
+// identity headers at 64, and the brand page's samples at 256 and 512. A free number
+// would mean a fifth layout nobody designed. 24 is the row's own line box, so a row
+// image sits in the height the row already has and the dense table's pitch is
+// unchanged.
+export type TokenImageSize = 24 | 64 | 256 | 512;
 
 export interface TokenImageProps {
   // The curve address, which is what the identicon is derived from. Two tokens with

@@ -118,6 +118,15 @@ export default async function MarketsPage({
   // the viewer's own and arrive in the island.
   const rows = rowsPromise === null ? null : await rowsPromise;
 
+  // One picture per row, resolved the same way the rail's are: the chain stores only
+  // the metadataURI, and that URI is a content address rather than the image's
+  // location, so a row is not drawable until the document it names has been read.
+  // The indexer is offline in the visual baseline and every null it produces is one
+  // fewer read here, so an unreachable list costs nothing.
+  const rowImages = await Promise.all(
+    (rows ?? []).map((market) => fetchMarketImage(market.metadataURI)),
+  );
+
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-title font-medium text-pp-text">Markets</h1>
@@ -244,9 +253,11 @@ export default async function MarketsPage({
             ) : tab === "ascent" ? (
               // Final Ascent ranks a derived value, so it has no stored cursor
               // to page on: the ranked set arrives whole and there is no More.
-              rows.map((market) => <MarketRowLine key={market.id} market={market} />)
+              rows.map((market, index) => (
+                <MarketRowLine key={market.id} market={market} image={rowImages[index]} />
+              ))
             ) : (
-              <MarketsTableBody tab={tab} initialRows={rows} />
+              <MarketsTableBody tab={tab} initialRows={rows} initialImages={rowImages} />
             )}
           </tbody>
         </table>
