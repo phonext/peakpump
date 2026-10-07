@@ -11,7 +11,12 @@ no monetary value.
 
 ## Live demo
 
-<!-- Add the deployed front-end URL here. -->
+https://peakpump.vercel.app
+
+Try it on Arc Testnet. Connect your wallet, buy or sell tokens on the bonding
+curve, and watch markets move through ASCENT toward PEAK.
+
+![PeakPump screenshot](docs/screenshot-memelord.png)
 
 ## Deployed contracts
 
