@@ -75,7 +75,7 @@ into a credited balance stay as protocol dust.
 Clone with submodules, or the contracts will not compile:
 
 ```
-git clone --recurse-submodules <this repository>
+git clone --recurse-submodules https://github.com/phonext/peakpump.git
 ```
 
 Install:
