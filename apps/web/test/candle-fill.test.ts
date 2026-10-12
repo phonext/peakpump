@@ -103,19 +103,49 @@ describe("the candle carry-forward", () => {
     expect(filled.at(2)!.close).toBe(FIRST);
   });
 
-  it("keeps the most recent buckets when the fill would exceed the limit", () => {
-    // A minute between the first trade and the last, and a limit of three points:
-    // the six months of silence in between cannot all be drawn, so the three the
-    // frame keeps are the newest ones.
+  it("never evicts a real candle for a fill", () => {
+    // A hundred minutes between the first trade and the last, and a limit of three
+    // points. The silence cannot be drawn in full and neither can it buy the space
+    // the two real candles take: both survive, and the three points the frame holds
+    // are both trades plus the one bucket of flat price the budget had left.
     const far = BASE + 100n * MINUTE;
     const rows = [candle(BASE, FIRST), candle(far, SECOND)];
 
     const filled = fillCandleGaps(rows, "1m", 3);
 
     expect(filled).toHaveLength(3);
-    expect(filled.at(-1)!.bucketStart).toBe(far);
+    expect(filled.map((c) => c.bucketStart)).toEqual([BASE, BASE + MINUTE, far]);
+    // The one fill the budget allowed is the bucket after the earlier trade, at the
+    // price that trade left behind, and not a point drawn at the far candle's price.
+    expect(filled.at(1)!.close).toBe(FIRST);
+  });
+
+  it("caps the fill of a single gap at eight buckets", () => {
+    // The shape the deployed chart rendered wrong: two trades, days apart, whose
+    // gap once consumed the whole 300-point budget and left nothing but flat price.
+    // The cap bounds the flat stretch to eight buckets wherever it is spent.
+    const far = BASE + 100n * MINUTE;
+    const rows = [candle(BASE, FIRST), candle(far, SECOND)];
+
+    const filled = fillCandleGaps(rows, "1m", 300);
+
+    expect(filled).toHaveLength(10);
+    // Eight flat buckets off the earlier trade, then the far one, and no more.
+    expect(filled.map((c) => c.bucketStart)).toEqual([
+      BASE,
+      ...Array.from({ length: 8 }, (_, i) => BASE + BigInt(i + 1) * MINUTE),
+      far,
+    ]);
     expect(filled.at(-1)!.close).toBe(SECOND);
-    expect(filled.at(0)!.bucketStart).toBe(far - 2n * MINUTE);
+  });
+
+  it("keeps every real candle when the limit is smaller than the series", () => {
+    // The reserve is unconditional, so a limit below the candle count shortens the
+    // fill to nothing rather than dropping a trade. The frame may hold more points
+    // than the limit asked for, but never fewer real candles than the market has.
+    const rows = [candle(BASE, FIRST), candle(BASE + MINUTE, SECOND), candle(BASE + 2n * MINUTE, FIRST)];
+
+    expect(fillCandleGaps(rows, "1m", 1)).toEqual(rows);
   });
 
   it("fills every interval the chart offers", () => {
@@ -131,10 +161,46 @@ describe("the candle carry-forward", () => {
     }
   });
 
-  it("treats the limit as a maximum and not a target", () => {
-    const interval: CandleInterval = "1m";
-    const rows = [candle(BASE, FIRST), candle(BASE + MINUTE, SECOND)];
+  it("spends the leftover budget on the newest gap first", () => {
+    // Three trades and two long silences, and a budget that cannot cap both. The
+    // recent gap is the one a holder reads against the price the panel shows, so
+    // it is filled and the older one is left as the gap the axis simply skips.
+    const mid = BASE + 100n * MINUTE;
+    const far = BASE + 200n * MINUTE;
+    const rows = [candle(BASE, FIRST), candle(mid, SECOND), candle(far, FIRST)];
 
-    expect(fillCandleGaps(rows, interval, 1)).toHaveLength(1);
+    // Five points of budget after the three real candles: the newest gap takes
+    // all five and the older one takes none.
+    const filled = fillCandleGaps(rows, "1m", 8);
+
+    expect(filled).toHaveLength(8);
+    expect(filled.map((c) => c.bucketStart)).toEqual([
+      BASE,
+      mid,
+      ...Array.from({ length: 5 }, (_, i) => mid + BigInt(i + 1) * MINUTE),
+      far,
+    ]);
+  });
+
+  it("honours an explicit per-gap cap", () => {
+    const far = BASE + 100n * MINUTE;
+    const rows = [candle(BASE, FIRST), candle(far, SECOND)];
+
+    const filled = fillCandleGaps(rows, "1m", 300, 2);
+
+    expect(filled).toHaveLength(4);
+    expect(filled.map((c) => c.bucketStart)).toEqual([BASE, BASE + MINUTE, BASE + 2n * MINUTE, far]);
+  });
+
+  it("never draws a fill outside the real candles' own range", () => {
+    // The reserve does not widen the range: the first point is the first trade and
+    // the last is the last, and the fill only ever appears between two real ones.
+    const far = BASE + 100n * MINUTE;
+    const rows = [candle(BASE, FIRST), candle(far, SECOND)];
+
+    const filled = fillCandleGaps(rows, "1m", 300);
+
+    expect(filled.at(0)!.bucketStart).toBe(BASE);
+    expect(filled.at(-1)!.bucketStart).toBe(far);
   });
 });

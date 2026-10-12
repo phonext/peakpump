@@ -23,40 +23,59 @@ const INTERVAL_SECONDS: Record<CandleInterval, bigint> = {
 // never existed. Rows arrive ascending from lib/graphql.ts, which reverses the
 // descending fetch, and bucketStart is a multiple of the interval because the
 // indexer floors a trade timestamp to it, so the walk stays on the same grid.
+//
+// A carry-forward is only legible while it cannot crowd the real candles off the
+// frame. The limit is therefore spent on the real candles first and the fill draws
+// on what is left, and no single gap may take more than perGapCap points of it:
+// eight buckets of flat price reads as a pause, where a week of it reads as the
+// market's whole history and evicts the two trades that history consists of.
 export function fillCandleGaps(
   rows: readonly CandleRow[],
   interval: CandleInterval,
   limit: number,
+  perGapCap = 8,
 ): CandleRow[] {
   if (rows.length === 0) return [];
 
   const step = INTERVAL_SECONDS[interval];
 
-  // Walked newest first, because the limit binds on a market whose traded buckets
-  // are spread thinner than it allows, and the points worth keeping then are the
-  // recent ones — the same choice the descending fetch made when it kept the
-  // newest buckets and dropped the older ones. The reverse is a copy of at most
-  // the limit's worth of rows, and the one at the end undoes it.
+  // The real candles are the history and are never evicted for a fill, so a market
+  // whose trading is one burst and one later trade keeps both bursts rather than
+  // trading them for the silence in between.
+  const filled: CandleRow[] = [...rows];
+  let remaining = Math.max(0, limit - rows.length);
+
+  // Gaps in descending time, so a budget that runs out runs out on the oldest
+  // silence: the recent flat stretch is the one a holder reads against the price
+  // the panel shows, and it is filled before the older one is.
   const descending = [...rows].reverse();
-  // Narrowed here rather than at every read below: noUncheckedIndexedAccess types
-  // the head optional even after the empty check above.
-  const latest = descending[0];
-  if (latest === undefined) return [];
-
-  const filled: CandleRow[] = [latest];
-  let previous: CandleRow = latest;
-
-  for (const earlier of descending.slice(1)) {
-    for (let t = previous.bucketStart - step; t > earlier.bucketStart; t -= step) {
-      if (filled.length >= limit) break;
-      filled.push(carryForward(t, earlier.close));
-    }
-    if (filled.length >= limit) break;
-    filled.push(earlier);
-    previous = earlier;
+  const gaps: Array<{ earlier: CandleRow; later: CandleRow }> = [];
+  let previous: CandleRow | undefined;
+  for (const row of descending) {
+    if (previous !== undefined) gaps.push({ earlier: row, later: previous });
+    previous = row;
   }
 
-  return filled.reverse();
+  for (const { earlier, later } of gaps) {
+    if (remaining === 0) break;
+    // The buckets strictly between the two, which is the count of steps minus the
+    // two ends. bucketStart is unique per (token, interval) and interval-aligned,
+    // so this is the count of candles to draw and never a negative one.
+    const wanted = (later.bucketStart - earlier.bucketStart) / step - 1n;
+    const count = Number(fewest(wanted, BigInt(perGapCap), BigInt(remaining)));
+    for (let k = 1n; k <= count; k++) {
+      filled.push(carryForward(earlier.bucketStart + k * step, earlier.close));
+    }
+    remaining -= count;
+  }
+
+  return filled.sort((a, b) =>
+    a.bucketStart > b.bucketStart ? 1 : a.bucketStart < b.bucketStart ? -1 : 0,
+  );
+}
+
+function fewest(...values: readonly bigint[]): bigint {
+  return values.reduce((lowest, value) => (value < lowest ? value : lowest));
 }
 
 function carryForward(bucketStart: bigint, close: bigint): CandleRow {
