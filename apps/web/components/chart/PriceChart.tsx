@@ -8,6 +8,7 @@ import { Tabs } from "@peakpump/ui/Tabs";
 import { useMemo, useState } from "react";
 import type { Address } from "viem";
 import type { ChartFormat, ChartLevel, ChartSeries } from "@/components/chart/ChartCanvas";
+import { fillCandleGaps } from "@/components/chart/candle-fill";
 import { CHART_HEIGHT, ChartFrame } from "@/components/chart/ChartFrame";
 import { Attribution } from "@/components/layout/Attribution";
 import { ReadFailure } from "@/components/token/ReadFailure";
@@ -80,10 +81,15 @@ export function PriceChart({ curve }: { curve: Address }) {
 
   const series = useMemo<ChartSeries | null>(() => {
     if (state.kind !== "rows") return null;
+    // SPEC 6.3: a bucket with no trade does not exist, so the gaps an empty
+    // bucket leaves are drawn here rather than indexed. Filled before the format
+    // branch, because the cap series is derived from the same closes and a flat
+    // price candle is a flat cap point.
+    const filled = fillCandleGaps(state.rows, interval, LIMIT);
     if (format === "price") {
       return {
         kind: "candles",
-        data: state.rows.map((row) => ({
+        data: filled.map((row) => ({
           // A bucket boundary, not a fill time: the indexer aggregates on it and a time
           // axis has no other coordinate. Ordering stays the indexer's own.
           time: Number(row.bucketStart),
@@ -97,12 +103,12 @@ export function PriceChart({ curve }: { curve: Address }) {
     if (S === undefined) return null;
     return {
       kind: "line",
-      data: state.rows.map((row) => ({
+      data: filled.map((row) => ({
         time: Number(row.bucketStart),
         value: toCap(capFromClose(row.close, S)),
       })),
     };
-  }, [state, format, S]);
+  }, [state, format, S, interval]);
 
   const levels = useMemo<ChartLevel[]>(() => {
     const price = summitLevel(params.data, format);
