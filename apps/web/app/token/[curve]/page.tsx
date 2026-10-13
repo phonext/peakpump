@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getAddress, isAddress } from "viem";
 import { PriceChart } from "@/components/chart/PriceChart";
+import { defaultInterval } from "@/components/chart/interval-default";
 import { RouteChart } from "@/components/chart/RouteChart";
 import { AddressLink } from "@/components/token/AddressLink";
 import { Comments } from "@/components/social/Comments";
@@ -88,6 +89,15 @@ export default async function TokenPage({ params }: { params: Promise<{ curve: s
   const market = markets === null ? null : (markets[0] ?? null);
   const image = market === null ? null : await fetchMarketImage(market.metadataURI);
 
+  // Graded from the market the page already read, so no second indexer round trip.
+  // An unreachable indexer answers null and this falls back to the 5m the chart
+  // itself keeps as its standalone default, which is the interval the panel below
+  // would have opened on before this grading existed. The wall clock is enough
+  // here: the grade picks a default tab and nothing on it is a figure anyone
+  // trades on, and the market's own timestamp is the indexer's, not the chain's.
+  const interval =
+    market === null ? undefined : defaultInterval(BigInt(Math.floor(Date.now() / 1000)) - market.timestamp);
+
   return (
     <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[280px_1fr_360px] lg:items-start">
       <Panel as="section" title="Token" className={PLACE.identity}>
@@ -132,7 +142,7 @@ export default async function TokenPage({ params }: { params: Promise<{ curve: s
           </div>
           <div className="flex flex-col gap-3">
             <h3 className={SUBHEAD}>Price history</h3>
-            <PriceChart curve={curve} />
+            <PriceChart curve={curve} initialInterval={interval} />
           </div>
         </div>
       </Panel>

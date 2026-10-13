@@ -66,8 +66,12 @@ function summitLevel(params: MarketParams | undefined, format: ChartFormat): num
     : toCap(marketCap6(x1, params.y1, params.S));
 }
 
-export function PriceChart({ curve }: { curve: Address }) {
-  const [interval, chooseInterval] = useState<CandleInterval>("5m");
+// The strip opens on the interval the market's own age makes legible, graded by
+// the token route from the market it already reads. A default of "5m" is kept
+// here so the component stays standalone, and it is the interval a market of
+// unknown age — the indexer not answering, or a route without a market — opens on.
+export function PriceChart({ curve, initialInterval = "5m" }: { curve: Address; initialInterval?: CandleInterval }) {
+  const [interval, chooseInterval] = useState<CandleInterval>(initialInterval);
   const [format, setFormat] = useState<ChartFormat>("price");
   const params = useMarketParams(curve);
   // Candles are keyed on the token and the token is the params read's answer, so this
